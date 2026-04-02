@@ -88,15 +88,15 @@
     }
 
     .orb {
-      width: 188px;
-      height: 188px;
+      width: 92px;
+      height: 92px;
       margin: 0 auto;
       border-radius: 999px;
       border: 1px solid var(--border);
       box-shadow:
-        0 0 0 8px rgba(255, 255, 255, 0.04),
-        0 28px 70px rgba(2, 6, 23, 0.55),
-        inset 0 0 30px rgba(255, 255, 255, 0.12);
+        0 0 0 6px rgba(255, 255, 255, 0.04),
+        0 18px 46px rgba(2, 6, 23, 0.45),
+        inset 0 0 24px rgba(255, 255, 255, 0.12);
     }
 
     .palette-panel {
@@ -119,8 +119,8 @@
     .palette {
       display: grid;
       grid-template-columns: repeat(10, minmax(0, 1fr));
-      gap: 8px;
-      max-height: 320px;
+      gap: 7px;
+      max-height: 360px;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -132,8 +132,8 @@
     }
 
     .swatch {
-      height: 24px;
-      border-radius: 7px;
+      height: 20px;
+      border-radius: 6px;
       border: 1px solid rgba(255, 255, 255, 0.12);
       cursor: pointer;
       transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
@@ -151,7 +151,7 @@
     @media (max-width: 520px) {
       .shell { width: min(100%, 360px); }
       .palette { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-      .orb { width: 162px; height: 162px; }
+      .orb { width: 84px; height: 84px; }
     }
   </style>
 </head>
@@ -197,13 +197,13 @@
     let currentHex = "#010101";
 
     const paletteColors = [];
-    for (let h = 0; h < 360; h += 18) {
-      for (let l = 38; l <= 68; l += 10) {
-        const s = 92;
+    for (let h = 0; h < 360; h += 12) {
+      for (let l = 34; l <= 74; l += 10) {
+        const s = 90;
         paletteColors.push(hslToHex(h, s, l));
       }
     }
-    paletteColors.push("#010101", "#111827", "#1F2937", "#F8FAFC", "#EF4444", "#22C55E", "#3B82F6", "#EAB308");
+    paletteColors.push("#010101", "#080808", "#111827", "#1F2937", "#F8FAFC", "#EF4444", "#22C55E", "#3B82F6", "#EAB308", "#A855F7");
 
     function hslToHex(h, s, l) {
       s /= 100;
@@ -244,11 +244,11 @@
       source.buffer = audioBuffer;
       source.connect(audioContext.destination);
       const now = audioContext.currentTime;
-      if (nextPlayTime - now > 0.08) {
-        nextPlayTime = now + 0.01;
+      if (nextPlayTime - now > 0.04) {
+        nextPlayTime = now + 0.005;
       }
       if (nextPlayTime < now) {
-        nextPlayTime = now + 0.01;
+        nextPlayTime = now + 0.005;
       }
       source.start(nextPlayTime);
       nextPlayTime += audioBuffer.duration;
