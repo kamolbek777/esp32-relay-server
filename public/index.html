@@ -5,49 +5,178 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP32 Remote Control</title>
   <style>
-    :root { --border: rgba(255,255,255,.12); --panel: rgba(10,17,35,.72); }
+    :root {
+      --bg-a: #030712;
+      --bg-b: #0f1a33;
+      --panel: rgba(9, 15, 31, 0.84);
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #e5eefc;
+      --muted: rgba(229, 238, 252, 0.6);
+    }
+
     * { box-sizing: border-box; }
+
     body {
-      margin: 0; min-height: 100vh; font-family: "Trebuchet MS", sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", sans-serif;
+      color: var(--text);
       background:
-        radial-gradient(circle at top left, rgba(34,211,238,.16), transparent 24%),
-        radial-gradient(circle at bottom right, rgba(59,130,246,.18), transparent 24%),
-        linear-gradient(145deg, #020617, #081126 40%, #111c37);
-      display: grid; place-items: center; overflow: hidden;
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 22%),
+        radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.16), transparent 25%),
+        linear-gradient(155deg, var(--bg-a), var(--bg-b) 45%, #14203b);
+      display: grid;
+      place-items: center;
+      padding: 28px 14px;
     }
-    .shell { display: grid; gap: 18px; place-items: center; }
-    .picker-wrap { position: relative; width: 220px; height: 220px; }
-    input[type="color"] {
-      position: absolute; inset: 0; width: 220px; height: 220px; opacity: 0; cursor: pointer;
+
+    .shell {
+      width: min(100%, 420px);
+      display: grid;
+      gap: 18px;
     }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .audio-button {
+      width: 54px;
+      height: 54px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 42px rgba(2, 6, 23, 0.38);
+      color: var(--text);
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .audio-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 22px 48px rgba(2, 6, 23, 0.48);
+    }
+
+    .audio-button svg {
+      width: 22px;
+      height: 22px;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .audio-button.live {
+      box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.08), 0 20px 48px rgba(34, 197, 94, 0.18);
+    }
+
+    .indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: #ef4444;
+      box-shadow: 0 0 18px rgba(239, 68, 68, 0.45);
+      transition: background 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .indicator.online {
+      background: #22c55e;
+      box-shadow: 0 0 18px rgba(34, 197, 94, 0.45);
+    }
+
     .orb {
-      width: 220px; height: 220px; border-radius: 999px; border: 1px solid var(--border);
-      box-shadow: 0 0 0 8px rgba(255,255,255,.04), 0 30px 80px rgba(2,6,23,.55), inset 0 0 32px rgba(255,255,255,.12);
+      width: 188px;
+      height: 188px;
+      margin: 0 auto;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      box-shadow:
+        0 0 0 8px rgba(255, 255, 255, 0.04),
+        0 28px 70px rgba(2, 6, 23, 0.55),
+        inset 0 0 30px rgba(255, 255, 255, 0.12);
     }
-    .audio, .status {
-      width: 72px; height: 72px; border-radius: 999px; border: 1px solid var(--border);
-      background: var(--panel); backdrop-filter: blur(14px); box-shadow: 0 16px 40px rgba(2,6,23,.4);
+
+    .palette-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 16px;
+      box-shadow: 0 18px 60px rgba(2, 6, 23, 0.44);
     }
-    .audio { cursor: pointer; position: relative; }
-    .audio::before, .audio::after, .status::before {
-      content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 999px;
+
+    .palette-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: var(--muted);
     }
-    .audio::before { width: 18px; height: 18px; background: #f8fafc; box-shadow: 0 0 18px rgba(255,255,255,.45); }
-    .audio::after { width: 34px; height: 34px; border: 2px solid rgba(255,255,255,.55); }
-    .audio.live { animation: pulse 1s ease infinite; }
-    .status::before { width: 18px; height: 18px; background: #ef4444; box-shadow: 0 0 16px rgba(239,68,68,.5); }
-    .status.online::before { background: #22c55e; box-shadow: 0 0 16px rgba(34,197,94,.5); }
-    @keyframes pulse { 50% { transform: scale(1.06); } }
+
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .palette::-webkit-scrollbar { width: 8px; }
+    .palette::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+    }
+
+    .swatch {
+      height: 24px;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .swatch:hover {
+      transform: translateY(-1px) scale(1.04);
+    }
+
+    .swatch.active {
+      border-color: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+    }
+
+    @media (max-width: 520px) {
+      .shell { width: min(100%, 360px); }
+      .palette { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+      .orb { width: 162px; height: 162px; }
+    }
   </style>
 </head>
 <body>
   <main class="shell">
-    <label class="picker-wrap">
-      <div id="orb" class="orb"></div>
-      <input id="picker" type="color" value="#00AAFF">
-    </label>
-    <button id="audio" class="audio" type="button" aria-label="Toggle live audio"></button>
-    <div id="status" class="status"></div>
+    <div class="topbar">
+      <button id="audio" class="audio-button" type="button" aria-label="Toggle live audio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 5 6 9H3v6h3l5 4z"></path>
+          <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+          <path d="M17.8 6a8.2 8.2 0 0 1 0 12"></path>
+        </svg>
+      </button>
+      <div id="status" class="indicator" title="Connection status"></div>
+    </div>
+
+    <div id="orb" class="orb"></div>
+
+    <section class="palette-panel">
+      <div class="palette-header">
+        <span>Color Grid</span>
+        <span id="hexLabel">#010101</span>
+      </div>
+      <div id="palette" class="palette"></div>
+    </section>
   </main>
 
   <script>
@@ -55,17 +184,46 @@
     const token = new URLSearchParams(location.search).get("token") || "change-this-token";
     const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${wsProtocol}://${location.host}/ws/app?deviceId=${encodeURIComponent(deviceId)}&token=${encodeURIComponent(token)}`);
-    const picker = document.getElementById("picker");
+
     const orb = document.getElementById("orb");
     const audioButton = document.getElementById("audio");
     const status = document.getElementById("status");
+    const palette = document.getElementById("palette");
+    const hexLabel = document.getElementById("hexLabel");
 
     let audioEnabled = false;
     let audioContext;
     let nextPlayTime = 0;
+    let currentHex = "#010101";
+
+    const paletteColors = [];
+    for (let h = 0; h < 360; h += 18) {
+      for (let l = 38; l <= 68; l += 10) {
+        const s = 92;
+        paletteColors.push(hslToHex(h, s, l));
+      }
+    }
+    paletteColors.push("#010101", "#111827", "#1F2937", "#F8FAFC", "#EF4444", "#22C55E", "#3B82F6", "#EAB308");
+
+    function hslToHex(h, s, l) {
+      s /= 100;
+      l /= 100;
+      const k = n => (n + h / 30) % 12;
+      const a = s * Math.min(l, 1 - l);
+      const f = n => {
+        const color = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+        return Math.round(255 * color).toString(16).padStart(2, "0");
+      };
+      return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+    }
 
     function setOrb(color) {
-      orb.style.background = `radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), ${color} 38%, #020617 130%)`;
+      currentHex = color.toUpperCase();
+      hexLabel.textContent = currentHex;
+      orb.style.background = `radial-gradient(circle at 30% 30%, rgba(255,255,255,.58), ${currentHex} 38%, #020617 130%)`;
+      for (const button of palette.querySelectorAll(".swatch")) {
+        button.classList.toggle("active", button.dataset.hex === currentHex);
+      }
     }
 
     function ensureAudioContext() {
@@ -86,23 +244,46 @@
       source.buffer = audioBuffer;
       source.connect(audioContext.destination);
       const now = audioContext.currentTime;
-      if (nextPlayTime < now) nextPlayTime = now + 0.02;
+      if (nextPlayTime - now > 0.08) {
+        nextPlayTime = now + 0.01;
+      }
+      if (nextPlayTime < now) {
+        nextPlayTime = now + 0.01;
+      }
       source.start(nextPlayTime);
       nextPlayTime += audioBuffer.duration;
     }
 
-    picker.addEventListener("input", () => {
-      const color = picker.value.toUpperCase();
-      setOrb(color);
-      ws.send(JSON.stringify({ type: "color", hex: color }));
-    });
+    function sendColor(hex) {
+      setOrb(hex);
+      ws.send(JSON.stringify({ type: "color", hex }));
+    }
+
+    function buildPalette() {
+      const unique = [...new Set(paletteColors)].slice(0, 200);
+      for (const hex of unique) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "swatch";
+        button.dataset.hex = hex;
+        button.style.background = hex;
+        button.title = hex;
+        button.addEventListener("click", () => sendColor(hex));
+        palette.appendChild(button);
+      }
+    }
 
     audioButton.addEventListener("click", async () => {
       audioEnabled = !audioEnabled;
       audioButton.classList.toggle("live", audioEnabled);
       ensureAudioContext();
-      if (audioContext.state === "suspended") await audioContext.resume();
-      ws.send(JSON.stringify({ type: "audio", enabled: audioEnabled }));
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+      if (audioEnabled) {
+        nextPlayTime = 0;
+      }
+      ws.send(JSON.stringify({ type: "audio", audio: audioEnabled, enabled: audioEnabled }));
     });
 
     ws.addEventListener("message", async (event) => {
@@ -117,7 +298,6 @@
       const message = JSON.parse(event.data);
       if (message.type === "state") {
         if (message.hex) {
-          picker.value = message.hex;
           setOrb(message.hex);
         }
         if (typeof message.audio === "boolean") {
@@ -130,7 +310,8 @@
       }
     });
 
-    setOrb(picker.value);
+    buildPalette();
+    setOrb(currentHex);
   </script>
 </body>
 </html>
