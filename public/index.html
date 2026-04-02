@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Remote Control</title>
+  <style>
+    :root { --border: rgba(255,255,255,.12); --panel: rgba(10,17,35,.72); }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; font-family: "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.16), transparent 24%),
+        radial-gradient(circle at bottom right, rgba(59,130,246,.18), transparent 24%),
+        linear-gradient(145deg, #020617, #081126 40%, #111c37);
+      display: grid; place-items: center; overflow: hidden;
+    }
+    .shell { display: grid; gap: 18px; place-items: center; }
+    .picker-wrap { position: relative; width: 220px; height: 220px; }
+    input[type="color"] {
+      position: absolute; inset: 0; width: 220px; height: 220px; opacity: 0; cursor: pointer;
+    }
+    .orb {
+      width: 220px; height: 220px; border-radius: 999px; border: 1px solid var(--border);
+      box-shadow: 0 0 0 8px rgba(255,255,255,.04), 0 30px 80px rgba(2,6,23,.55), inset 0 0 32px rgba(255,255,255,.12);
+    }
+    .audio, .status {
+      width: 72px; height: 72px; border-radius: 999px; border: 1px solid var(--border);
+      background: var(--panel); backdrop-filter: blur(14px); box-shadow: 0 16px 40px rgba(2,6,23,.4);
+    }
+    .audio { cursor: pointer; position: relative; }
+    .audio::before, .audio::after, .status::before {
+      content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 999px;
+    }
+    .audio::before { width: 18px; height: 18px; background: #f8fafc; box-shadow: 0 0 18px rgba(255,255,255,.45); }
+    .audio::after { width: 34px; height: 34px; border: 2px solid rgba(255,255,255,.55); }
+    .audio.live { animation: pulse 1s ease infinite; }
+    .status::before { width: 18px; height: 18px; background: #ef4444; box-shadow: 0 0 16px rgba(239,68,68,.5); }
+    .status.online::before { background: #22c55e; box-shadow: 0 0 16px rgba(34,197,94,.5); }
+    @keyframes pulse { 50% { transform: scale(1.06); } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <label class="picker-wrap">
+      <div id="orb" class="orb"></div>
+      <input id="picker" type="color" value="#00AAFF">
+    </label>
+    <button id="audio" class="audio" type="button" aria-label="Toggle live audio"></button>
+    <div id="status" class="status"></div>
+  </main>
+
+  <script>
+    const deviceId = new URLSearchParams(location.search).get("deviceId") || "esp32s3-room-1";
+    const token = new URLSearchParams(location.search).get("token") || "change-this-token";
+    const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${wsProtocol}://${location.host}/ws/app?deviceId=${encodeURIComponent(deviceId)}&token=${encodeURIComponent(token)}`);
+    const picker = document.getElementById("picker");
+    const orb = document.getElementById("orb");
+    const audioButton = document.getElementById("audio");
+    const status = document.getElementById("status");
+
+    let audioEnabled = false;
+    let audioContext;
+    let nextPlayTime = 0;
+
+    function setOrb(color) {
+      orb.style.background = `radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), ${color} 38%, #020617 130%)`;
+    }
+
+    function ensureAudioContext() {
+      if (!audioContext) {
+        audioContext = new AudioContext({ sampleRate: 16000 });
+      }
+    }
+
+    function playPcm(buffer) {
+      ensureAudioContext();
+      const samples = new Int16Array(buffer);
+      const audioBuffer = audioContext.createBuffer(1, samples.length, 16000);
+      const channel = audioBuffer.getChannelData(0);
+      for (let i = 0; i < samples.length; i += 1) {
+        channel[i] = samples[i] / 32768;
+      }
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      const now = audioContext.currentTime;
+      if (nextPlayTime < now) nextPlayTime = now + 0.02;
+      source.start(nextPlayTime);
+      nextPlayTime += audioBuffer.duration;
+    }
+
+    picker.addEventListener("input", () => {
+      const color = picker.value.toUpperCase();
+      setOrb(color);
+      ws.send(JSON.stringify({ type: "color", hex: color }));
+    });
+
+    audioButton.addEventListener("click", async () => {
+      audioEnabled = !audioEnabled;
+      audioButton.classList.toggle("live", audioEnabled);
+      ensureAudioContext();
+      if (audioContext.state === "suspended") await audioContext.resume();
+      ws.send(JSON.stringify({ type: "audio", enabled: audioEnabled }));
+    });
+
+    ws.addEventListener("message", async (event) => {
+      if (typeof event.data !== "string") {
+        if (audioEnabled) {
+          const buffer = await event.data.arrayBuffer();
+          playPcm(buffer);
+        }
+        return;
+      }
+
+      const message = JSON.parse(event.data);
+      if (message.type === "state") {
+        if (message.hex) {
+          picker.value = message.hex;
+          setOrb(message.hex);
+        }
+        if (typeof message.audio === "boolean") {
+          audioEnabled = message.audio;
+          audioButton.classList.toggle("live", audioEnabled);
+        }
+      }
+      if (message.type === "status") {
+        status.classList.toggle("online", !!message.online);
+      }
+    });
+
+    setOrb(picker.value);
+  </script>
+</body>
+</html>
